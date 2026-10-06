@@ -1,6 +1,6 @@
 {
   "name": "@240xu/dsh-seqguard",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "DSH web plugin: session seq integrity guard. Detects the duplicate-seq corruption class (bionic no-write-lease race, deepseek-harness discussion #8984) and auto-repairs the single-shift shape with backup, temp+rename publish, and post-write validation. Read-mostly: never writes unless a repairable file passes idle/fd/stability gates.",
   "type": "module",
   "main": "lib/index.js",

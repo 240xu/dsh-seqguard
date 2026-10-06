@@ -25,6 +25,25 @@ stale resume 句柄同时写同一个会话文件时，会写出**重复 seq**�
   分析**实际写入的字节**必须为 clean 才算完成。
 - 首扫全量，之后只重读变更过的文件。
 
+## 第二类损坏：v4 message source（已纳入 0.2.0）
+
+校验器 `dsh-session-format-v3-to-v4` 要求**声明过的持久消息槽**里每条消息都带
+producer-owned 的 `source`（对象、`kind` 非空字符串、且不能是旧版 `plugin` 包装器）。
+v3 迁移上来的行带着 `{kind:"plugin", plugin:"<pkg>"}`，或缺 `source`，就会让整份拒读：
+`format v4 message requires a producer-owned source kind`。
+
+修复分两档（按"修法有多确定"划分）：
+
+| 情形 | 处理 |
+|---|---|
+| `kind:"plugin"` 且 `plugin` 是字符串 | **确定性改写**：照上游 `producerKind` 映射表（改名表/同名表/其余 `plugin:<name>`）改 kind 并删除 `plugin` 字段。配置 `repairSourceKind: true` 开启自动写 |
+| `system/message`（role=system）缺 source | **推断补全**为 `{kind:"system-prompt"}`（健康同类会话就是这个形状）。配置 `inferSystemSource: true` 开启 |
+| 其它缺失/非法（`user/message` 无 source 无 role 等） | **只报告，绝不写**——不猜归因 |
+| `assistant/message` 无 source | **不算问题**：原生 v4 的 assistant 消息本来就没有 source（已对健康会话核实） |
+
+实测（365 个会话文件）：317 干净 / 27 个确定性可修 / 21 个需判断（96 行，其中
+47 行 system/message 缺 source 属可推断类）。
+
 ## 端点（loopback / same-origin 信任门，同 lazy-view）
 
 | 端点 | 说明 |
@@ -37,9 +56,11 @@ stale resume 句柄同时写同一个会话文件时，会写出**重复 seq**�
 
 ```yaml
 config:
-  autoRepair: true          # 关掉则只报告不写
+  autoRepair: true          # seq 类：自动修（关掉则只报告不写）
   intervalMinutes: 30       # 扫描周期
   idleGraceMs: 180000       # 跳过最近 3 分钟内被写的文件
+  repairSourceKind: false   # v4 source：确定性 plugin-wrapper 改写（默认关）
+  inferSystemSource: false  # v4 source：system/message 缺 source 推断为 system-prompt（默认关）
 ```
 
 ## 安装
