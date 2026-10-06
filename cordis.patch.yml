@@ -1,0 +1,4 @@
+# dsh-seqguard bundle patch: mounts the plugin as one cordis loader entry.
+- insert:
+    - id: dsh-seqguard
+      name: '@240xu/dsh-seqguard'
